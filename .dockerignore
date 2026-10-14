@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+.dockerignore
+/storage/logs/*
+/storage/cache/*
+/storage/sessions/*
+!/storage/logs/.gitkeep
+!/storage/cache/.gitkeep
+!/storage/sessions/.gitkeep
