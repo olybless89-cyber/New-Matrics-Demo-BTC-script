@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite headers
 
+# Apache can only load ONE MPM; PHP needs prefork
+RUN rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.* \
+    && a2enmod mpm_prefork
+
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

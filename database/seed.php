@@ -48,19 +48,26 @@ try {
         $schemaClean = preg_replace('/ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;?/i', ';', $schema);
         $schemaClean = preg_replace('/INT UNSIGNED AUTO_INCREMENT PRIMARY KEY/i', 'INTEGER PRIMARY KEY AUTOINCREMENT', $schemaClean);
         $schemaClean = preg_replace('/INT UNSIGNED/i', 'INTEGER', $schemaClean);
+        // SQLite has no ENUM type and no ON UPDATE clause
+        $schemaClean = preg_replace('/ENUM\s*\([^)]*\)/i', 'VARCHAR(50)', $schemaClean);
+        $schemaClean = preg_replace('/\s+ON UPDATE CURRENT_TIMESTAMP/i', '', $schemaClean);
         $pdo->exec($schemaClean);
     } else {
         $pdo->exec($schema);
     }
     echo "Database schema created.\n";
 
+    // "INSERT IGNORE" is MySQL-only; SQLite uses "INSERT OR IGNORE"
+    $insertIgnore = $driver === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+    $isEmpty = fn(string $table): bool => (int) $pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn() === 0;
+
     $adminPassword = password_hash('admin123', PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("INSERT IGNORE INTO users (username, fullname, email, password, is_admin, status, referral_id) VALUES (?, ?, ?, ?, 1, 'active', ?)");
+    $stmt = $pdo->prepare("{$insertIgnore} INTO users (username, fullname, email, password, is_admin, status, referral_id) VALUES (?, ?, ?, ?, 1, 'active', ?)");
     $stmt->execute(['admin', 'Site Admin', 'admin@trustcrypto.com', $adminPassword, 'ADMIN001']);
     echo "Admin user created: admin@trustcrypto.com / admin123\n";
 
     $coderPassword = password_hash('12345678', PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("INSERT IGNORE INTO users (username, fullname, email, password, is_admin, status, referral_id, balance, total_deposits) VALUES (?, ?, ?, ?, 0, 'active', ?, 12500.00, 15000.00)");
+    $stmt = $pdo->prepare("{$insertIgnore} INTO users (username, fullname, email, password, is_admin, status, referral_id, balance, total_deposits) VALUES (?, ?, ?, ?, 0, 'active', ?, 12500.00, 15000.00)");
     $stmt->execute(['coder', 'Alex Morgan', 'coder@gmail.com', $coderPassword, 'REFCODER88']);
     echo "User created: coder@gmail.com / 12345678\n";
 
@@ -115,11 +122,13 @@ try {
         ['Premium', 2.5000, 'Hourly', 1000.00, 1000000.00, 48, '2.5% hourly for 48 hours. Premium plan.', '#9b59b6'],
         ['VIP', 8.0000, 'Daily', 5000.00, 5000000.00, 168, '8% daily for 7 days. VIP exclusive.', '#e67e22'],
     ];
-    $stmt = $pdo->prepare("INSERT IGNORE INTO investments (name, rate, period, min_amount, max_amount, duration_hours, description, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    foreach ($plans as $plan) {
-        $stmt->execute($plan);
+    $stmt = $pdo->prepare("{$insertIgnore} INTO investments (name, rate, period, min_amount, max_amount, duration_hours, description, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    if ($isEmpty('investments')) {
+        foreach ($plans as $plan) {
+            $stmt->execute($plan);
+        }
+        echo "Investment plans seeded.\n";
     }
-    echo "Investment plans seeded.\n";
 
     $settings = [
         ['site_name', 'Trustcrypto'],
@@ -128,7 +137,7 @@ try {
         ['referral_rate', '5'],
         ['company_email', 'support@trustcrypto.com'],
     ];
-    $stmt = $pdo->prepare("INSERT IGNORE INTO settings (`key`, value) VALUES (?, ?)");
+    $stmt = $pdo->prepare("{$insertIgnore} INTO settings (`key`, value) VALUES (?, ?)");
     foreach ($settings as $s) {
         $stmt->execute($s);
     }
@@ -142,11 +151,13 @@ try {
         ['Weekend Surge: 15% Deposit Match', 'LIMITED TIME', 'deposit', 'Deposit or fund your wallet with $300 or more this weekend to get an instant 15% investment match bonus credited to your portfolio.', '15% instant deposit match;Instant trading activation;Limited to 1 claim per user', 15.00, 'percentage', 'WEEKEND15', 300.00, date('Y-m-d H:i:s', strtotime('+7 days'))],
         ['Airport Lounge & Travel Priority Pass', 'VIP EXCLUSIVE', 'card', 'Complimentary access to 1,200+ airport lounges worldwide, travel insurance, and dedicated 24/7 concierge for Metal and Diamond cards.', 'Priority Pass worldwide;Travel accident insurance;Dedicated personal VIP agent', 0.00, 'perk', 'VIPLOUNGE', 1000.00, date('Y-m-d H:i:s', strtotime('+180 days'))],
     ];
-    $stmt = $pdo->prepare("INSERT IGNORE INTO offers (title, badge, category, description, perks, reward_amount, reward_type, promo_code, min_spend, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    foreach ($defaultOffers as $offer) {
-        $stmt->execute($offer);
+    $stmt = $pdo->prepare("{$insertIgnore} INTO offers (title, badge, category, description, perks, reward_amount, reward_type, promo_code, min_spend, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if ($isEmpty('offers')) {
+        foreach ($defaultOffers as $offer) {
+            $stmt->execute($offer);
+        }
+        echo "Promotional offers seeded.\n";
     }
-    echo "Promotional offers seeded.\n";
 
     echo "Seeding complete.\n";
 } catch (Exception $e) {
