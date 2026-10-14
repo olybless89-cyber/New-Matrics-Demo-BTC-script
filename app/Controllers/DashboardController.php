@@ -34,6 +34,7 @@ class DashboardController
         $activeInvestments = \DB::fetchAll("SELECT ui.*, i.name as plan_name FROM user_investments ui JOIN investments i ON i.id=ui.investment_id WHERE ui.user_id=? AND ui.status='active' ORDER BY ui.id DESC", [$userId]);
         $cardCount = (int) (\DB::fetch("SELECT COUNT(*) c FROM debit_cards WHERE user_id=?", [$userId])['c'] ?? 0);
         $userCards = \DB::fetchAll("SELECT * FROM debit_cards WHERE user_id=? ORDER BY id DESC LIMIT 2", [$userId]);
+        $recentTxns = \DB::fetchAll("SELECT * FROM transactions WHERE user_id=? ORDER BY id DESC LIMIT 5", [$userId]);
 
         \View::render('dashboard.index', [
             'active' => 'dashboard',

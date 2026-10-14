@@ -5,6 +5,8 @@ class View
     public static function render(string $view, array $data = [], string $layout = 'main'): void
     {
         extract($data);
+        // Controllers use dot notation (e.g. "home.index" -> home/index.php)
+        $view = str_replace('.', '/', $view);
         $viewFile = ROOT . "/app/Views/{$view}.php";
         if (!file_exists($viewFile)) {
             throw new RuntimeException("View not found: {$view}");
